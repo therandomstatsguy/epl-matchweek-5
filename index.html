@@ -3333,6 +3333,21 @@ function(a,b,c){if(!Vd(b))throw Error(n(200));return Wd(null,a,b,!1,c)};Q.unmoun
       if (!(mins > 0) || v == null) return prior;
       return (v + prior * (PRIOR_MIN / 90)) / ((mins + PRIOR_MIN) / 90);
     };
+    const DEFC_THR = { 2: 10, 3: 12, 4: 12 }, DEFC_BASE = { 2: 0.25, 3: 0.09, 4: 0.05 }, DEFC_K = 4;
+    const defcPts = (hp, start) => {
+      const thr = DEFC_THR[hp.pos];
+      if (!thr) return 0;
+      const f = FBYCODE[hp.id];
+      let hits = 0, g = 0;
+      if (f && f.gws) for (const r of f.gws) {
+        if (r[29] === 2026 && r[3] >= 45) {
+          g++;
+          if ((r[20] || 0) >= thr) hits++;
+        }
+      }
+      const p = (hits + (DEFC_BASE[hp.pos] || 0) * DEFC_K) / (g + DEFC_K);
+      return 2 * p * start;
+    };
     const one = (hp) => {
       const fx = fxOf[hp.t];
       if (!fx) return { tot: hp.epn != null ? hp.epn : 0, na: true };
@@ -3352,8 +3367,9 @@ function(a,b,c){if(!Vd(b))throw Error(n(200));return Wd(null,a,b,!1,c)};Q.unmoun
       const astPts = lamA * 3 * start;
       const T2 = TM[gk] || {};
       const oppLad = fx.home ? T2.tga && T2.tga.m : T2.tgh && T2.tgh.m;
-      const csP = blend(ladderCS(oppLad), 0.27);
-      const csPts = (CSPTS[pos] || 0) * (csP == null ? 0.27 : csP) * p60;
+      const csOdds = ladderCS(oppLad);
+      const csP = csOdds != null ? 0.7 * csOdds + 0.3 * 0.27 : 0.27;
+      const csPts = (CSPTS[pos] || 0) * csP * p60;
       const concExp = ladderExp(oppLad);
       const concPen = pos <= 2 ? -0.5 * (concExp != null ? concExp : 1.4) * p60 : 0;
       let savePts = 0;
@@ -3368,8 +3384,9 @@ function(a,b,c){if(!Vd(b))throw Error(n(200));return Wd(null,a,b,!1,c)};Q.unmoun
       const retIdx = goalPts / (GOALPTS[pos] || 5) + 0.6 * (astPts / 3) + (pos <= 2 ? 0.5 * (csP == null ? 0.27 : csP) : 0);
       let bonus = blend(clamp(retIdx * 1.05, 0, 1.8), gp > 0 ? clamp(hp.bonus / gp, 0, 1.8) : null);
       bonus = clamp(bonus == null ? 0 : bonus, 0, 1.8) * start;
-      const tot = Math.max(0, appear + goalPts + astPts + csPts + concPen + savePts + cardPen + bonus);
-      return { tot, appear, goalPts, astPts, csPts, concPen, savePts, cardPen, bonus, na: false };
+      const dc = defcPts(hp, start);
+      const tot = Math.max(0, appear + goalPts + astPts + csPts + concPen + savePts + cardPen + bonus + dc);
+      return { tot, appear, goalPts, astPts, csPts, concPen, savePts, cardPen, bonus, dc, na: false };
     };
     const parts = {};
     HPLAYERS.forEach((hp) => {
